@@ -5,7 +5,7 @@ import queue
 import shutil
 import sys
 import threading
-from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 from zipfile import PyZipFile
 
 try:
@@ -259,11 +259,13 @@ class SimsDecompiler:
         max_workers = 4 if getattr(sys, "frozen", False) else min(6, cpu_count)
         if getattr(sys, "frozen", False):
             with ThreadPoolExecutor(max_workers=max_workers) as executor:
-                for _ in executor.map(self.decompile_dir, pyc_files):
-                    self._mark_completed()
+                futures = {executor.submit(self.decompile_dir, f): f for f in pyc_files}
+                for future in as_completed(futures):
+                    pass  # decompile_dir already calls _mark_completed internally
         else:
             with ProcessPoolExecutor(max_workers=max_workers) as executor:
-                for _ in executor.map(decompile_pyc_file, pyc_files):
+                futures = {executor.submit(decompile_pyc_file, f): f for f in pyc_files}
+                for future in as_completed(futures):
                     self._mark_completed()
 
     def run_decompile_all(self, game_folder):
